@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gestión de pedidos - Heladería</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --primary: #4a90e2;
+      --accent: #ff6b6b;
+      --bg: #f7f9fc;
+      --text: #2b2b2b;
+      --muted: #6b6b6b;
+      --ok: #2ecc71;
+      --warn: #f39c12;
+      --danger: #e74c3c;
+      --card: #ffffff;
+      --border: #e1e5ea;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      color: var(--text); background: var(--bg);
+    }
+    header {
+      background: var(--card); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 10;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 16px; }
+    h1 { margin: 0; font-size: 22px; }
+    .grid {
+      display: grid; gap: 16px; grid-template-columns: 1.2fr 1fr;
+    }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 10px;
+      padding: 16px;
+    }
+    .card h2 { margin-top: 0; font-size: 18px; }
+    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .row > * { flex: 1; }
+    label { font-size: 13px; color: var(--muted); }
+    input, select, button {
+      padding: 10px; border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; background: #fff;
+    }
+    input:focus, select:focus { outline: 2px solid rgba(74,144,226,0.2); }
+    button {
+      background: var(--primary); color: #fff; border: none; cursor: pointer;
+    }
+    button.secondary { background: #eef3fb; color: var(--text); }
+    button.warn { background: var(--warn); color: #fff; }
+    button.danger { background: var(--danger); color: #fff; }
+    button.ok { background: var(--ok); color: #fff; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 10px; text-align: left; }
+    th { background: #f1f4f9; font-weight: 600; font-size: 13px; }
+    .right { text-align: right; }
+    .badge {
+      display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px;
+      background: #eef3fb; color: var(--muted);
+    }
+    .totals { display: grid; grid-template-columns: 1fr 160px; gap: 8px; }
+    .totals div { display: contents; }
+    .totals label { align-self: center; }
+    .footer-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 12px; }
+    .empty { color: var(--muted); font-size: 14px; padding: 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Heladería Dulce Frío — Gestión de pedidos</h1>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="grid">
+      <!-- Catálogo de sabores -->
+      <section class="card">
+        <h2>Catálogo de sabores</h2>
+        <div class="row">
+          <div>
+            <label>Sabor</label>
+            <input id="flavorName" type="text" placeholder="Ej. Vainilla" />
+          </div>
+          <div>
+            <label>Precio por porción</label>
+            <input id="flavorPrice" type="number" min="0" step="0.01" placeholder="Ej. 3500" />
+          </div>
+          <div style="flex: 0 0 auto;">
+            <label>&nbsp;</label>
+            <button id="addFlavorBtn">Agregar</button>
+          </div>
+        </div>
+
+        <div id="flavorsList" style="margin-top: 12px;">
+          <!-- Tabla de sabores -->
+        </div>
+      </section>
+
+      <!-- Pedido actual -->
+      <section class="card">
+        <h2>Nuevo pedido</h2>
+        <div class="row">
+          <div>
+            <label>Seleccionar sabor</label>
+            <select id="orderFlavorSelect"></select>
+          </div>
+          <div>
+            <label>Cantidad</label>
+            <input id="orderQty" type="number" min="1" step="1" value="1" />
+          </div>
+          <div style="flex: 0 0 auto;">
+            <label>&nbsp;</label>
+            <button id="addToCartBtn">Añadir al carrito</button>
+          </div>
+        </div>
+
+        <div id="cartList" style="margin-top: 12px;"></div>
+
+        <div style="margin-top: 12px;">
+          <div class="totals">
+            <div><label>Subtotal</label><div class="right"><span id="subtotalText" class="badge">$0</span></div></div>
+            <div><label>Impuesto (%)</label><div class="right"><input id="taxPercent" type="number" min="0" step="1" value="0" /></div></div>
+            <div><label>Impuesto</label><div class="right"><span id="taxAmountText" class="badge">$0</span></div></div>
+            <div><label>Total</label><div class="right"><span id="totalText" class="badge">$0</span></div></div>
+          </div>
+
+          <div class="footer-actions">
+            <button class="secondary" id="clearCartBtn">Vaciar carrito</button>
+            <button class="ok" id="confirmOrderBtn">Confirmar pedido</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Historial -->
+    <section class="card" style="margin-top: 16px;">
+      <h2>Historial de pedidos</h2>
+      <div id="ordersHistory"></div>
+      <div class="footer-actions">
+        <button class="secondary" id="exportBtn">Exportar JSON</button>
+        <button class="warn" id="clearHistoryBtn">Borrar historial</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // --- Persistencia simple ---
+    const LS_KEYS = {
+      flavors: 'ice_flavors',
+      cart: 'ice_cart',
+      orders: 'ice_orders',
+      tax: 'ice_tax_percent'
+    };
+
+    const state = {
+      flavors: [],
+      cart: [],
+      orders: [],
+      taxPercent: 0
+    };
+
+    // --- Utilidades ---
+    const $ = (id) => document.getElementById(id);
+    const money = (v) =>
+      new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(v);
+    const confirmMsg = (msg) => window.confirm(msg);
+
+    // --- Inicialización ---
+    function loadState() {
+      try {
+        state.flavors = JSON.parse(localStorage.getItem(LS_KEYS.flavors)) || defaultFlavors();
+        state.cart = JSON.parse(localStorage.getItem(LS_KEYS.cart)) || [];
+        state.orders = JSON.parse(localStorage.getItem(LS_KEYS.orders)) || [];
+        state.taxPercent = Number(localStorage.getItem(LS_KEYS.tax)) || 0;
+      } catch {
+        state.flavors = defaultFlavors();
+        state.cart = [];
+        state.orders = [];
+        state.taxPercent = 0;
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(LS_KEYS.flavors, JSON.stringify(state.flavors));
+      localStorage.setItem(LS_KEYS.cart, JSON.stringify(state.cart));
+      localStorage.setItem(LS_KEYS.orders, JSON.stringify(state.orders));
+      localStorage.setItem(LS_KEYS.tax, String(state.taxPercent));
+    }
+
+    function defaultFlavors() {
+      return [
+        { id: crypto.randomUUID(), name: 'Vainilla', price: 3500 },
+        { id: crypto.randomUUID(), name: 'Chocolate', price: 3800 },
+        { id: crypto.randomUUID(), name: 'Fresa', price: 3600 },
+        { id: crypto.randomUUID(), name: 'Arequipe', price: 4200 },
+        { id: crypto.randomUUID(), name: 'Mango', price: 3900 },
+      ];
+    }
+
+    // --- Renderizado ---
+    function renderFlavors() {
+      const container = $('flavorsList');
+      if (state.flavors.length === 0) {
+        container.innerHTML = '<div class="empty">No hay sabores. Agrega el primero arriba.</div>';
+        return;
+      }
+      const rows = state.flavors.map(f => `
+        <tr>
+          <td>${f.name}</td>
+          <td class="right">${money(f.price)}</td>
+          <td class="right">
+            <button class="secondary" onclick="editFlavor('${f.id}')">Editar</button>
+            <button class="danger" onclick="deleteFlavor('${f.id}')">Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+      container.innerHTML = `
+        <table>
+          <thead><tr><th>Sabor</th><th class="right">Precio</th><th class="right">Acciones</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+      renderFlavorSelect();
+    }
+
+    function renderFlavorSelect() {
+      const select = $('orderFlavorSelect');
+      select.innerHTML = state.flavors.map(f => `<option value="${f.id}">${f.name} — ${money(f.price)}</option>`).join('');
+    }
+
+    function cartTotals() {
+      const subtotal = state.cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+      const tax = Math.round(subtotal * (state.taxPercent / 100));
+      const total = subtotal + tax;
+      return { subtotal, tax, total };
+    }
+
+    function renderCart() {
+      const container = $('cartList');
+      if (state.cart.length === 0) {
+        container.innerHTML = '<div class="empty">Carrito vacío. Agrega sabores al pedido.</div>';
+      } else {
+        const rows = state.cart.map(item => `
+          <tr>
+            <td>${item.name}</td>
+            <td class="right">${money(item.price)}</td>
+            <td class="right">${item.qty}</td>
+            <td class="right">${money(item.price * item.qty)}</td>
+            <td class="right">
+              <button class="secondary" onclick="changeQty('${item.id}', -1)">-</button>
+              <button class="secondary" onclick="changeQty('${item.id}', +1)">+</button>
+              <button class="danger" onclick="removeFromCart('${item.id}')">Eliminar</button>
+            </td>
+          </tr>
+        `).join('');
+        container.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Sabor</th>
+                <th class="right">Precio</th>
+                <th class="right">Cantidad</th>
+                <th class="right">Total línea</th>
+                <th class="right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        `;
+      }
+      const { subtotal, tax, total } = cartTotals();
+      $('subtotalText').textContent = money(subtotal);
+      $('taxAmountText').textContent = money(tax);
+      $('totalText').textContent = money(total);
+    }
+
+    function renderOrders() {
+      const container = $('ordersHistory');
+      if (state.orders.length === 0) {
+        container.innerHTML = '<div class="empty">Sin pedidos aún.</div>';
+        return;
+      }
+      const rows = state.orders.map(o => `
+        <tr>
+          <td>${new Date(o.createdAt).toLocaleString('es-CO')}</td>
+          <td>${o.items.map(i => `${i.qty}x ${i.name}`).join(', ')}</td>
+          <td class="right">${money(o.subtotal)}</td>
+          <td class="right">${money(o.tax)}</td>
+          <td class="right"><strong>${money(o.total)}</strong></td>
+          <td class="right">
+            <button class="secondary" onclick="reorder('${o.id}')">Reordenar</button>
+            <button class="danger" onclick="deleteOrder('${o.id}')">Eliminar</button>
+          </td>
+        </tr>
+      `).join('');
+      container.innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Fecha</th><th>Detalle</th><th class="right">Subtotal</th><th class="right">Impuesto</th><th class="right">Total</th><th class="right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    // --- Acciones catálogo ---
+    function addFlavor() {
+      const name = $('flavorName').value.trim();
+      const price = Number($('flavorPrice').value);
+      if (!name) return alert('Ingresa el nombre del sabor.');
+      if (!(price > 0)) return alert('Ingresa un precio válido.');
+      state.flavors.push({ id: crypto.randomUUID(), name, price });
+      $('flavorName').value = '';
+      $('flavorPrice').value = '';
+      saveState(); renderFlavors();
+    }
+
+    function editFlavor(id) {
+      const idx = state.flavors.findIndex(f => f.id === id);
+      if (idx < 0) return;
+      const current = state.flavors[idx];
+      const name = prompt('Nuevo nombre del sabor:', current.name);
+      if (name === null) return;
+      const priceStr = prompt('Nuevo precio por porción:', String(current.price));
+      if (priceStr === null) return;
+      const price = Number(priceStr);
+      if (!name.trim() || !(price > 0)) return alert('Datos inválidos.');
+      state.flavors[idx] = { ...current, name: name.trim(), price };
+      // Actualizar precios/nombres en el carrito que referencien el sabor
+      state.cart = state.cart.map(i => i.flavorId === id ? { ...i, name: name.trim(), price } : i);
+      saveState(); renderFlavors(); renderCart();
+    }
+
+    function deleteFlavor(id) {
+      const used = state.cart.some(i => i.flavorId === id);
+      if (used && !confirmMsg('Este sabor está en el carrito. ¿Eliminar de todas formas?')) return;
+      state.flavors = state.flavors.filter(f => f.id !== id);
+      state.cart = state.cart.filter(i => i.flavorId !== id);
+      saveState(); renderFlavors(); renderCart();
+    }
+
+    // --- Acciones pedido ---
+    function addToCart() {
+      const flavorId = $('orderFlavorSelect').value;
+      const qty = Number($('orderQty').value);
+      if (!flavorId) return alert('Selecciona un sabor.');
+      if (!(qty > 0)) return alert('Ingresa una cantidad válida.');
+      const flavor = state.flavors.find(f => f.id === flavorId);
+      if (!flavor) return alert('Sabor no encontrado.');
+      const existing = state.cart.find(i => i.flavorId === flavorId);
+      if (existing) {
+        existing.qty += qty;
+      } else {
+        state.cart.push({
+          id: crypto.randomUUID(),
+          flavorId: flavor.id,
+          name: flavor.name,
+          price: flavor.price,
+          qty
+        });
+      }
+      saveState(); renderCart();
+    }
+
+    function changeQty(itemId, delta) {
+      const item = state.cart.find(i => i.id === itemId);
+      if (!item) return;
+      item.qty += delta;
+      if (item.qty <= 0) {
+        state.cart = state.cart.filter(i => i.id !== itemId);
+      }
+      saveState(); renderCart();
+    }
+
+    function removeFromCart(itemId) {
+      state.cart = state.cart.filter(i => i.id !== itemId);
+      saveState(); renderCart();
+    }
+
+    function clearCart() {
+      if (!confirmMsg('¿Vaciar el carrito?')) return;
+      state.cart = [];
+      saveState(); renderCart();
+    }
+
+    function confirmOrder() {
+      if (state.cart.length === 0) return alert('El carrito está vacío.');
+      const { subtotal, tax, total } = cartTotals();
+      const order = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        items: state.cart.map(i => ({ flavorId: i.flavorId, name: i.name, price: i.price, qty: i.qty })),
+        subtotal, tax, total
+      };
+      state.orders.unshift(order);
+      state.cart = [];
+      saveState(); renderCart(); renderOrders();
+      alert('Pedido confirmado.');
+    }
+
+    function reorder(orderId) {
+      const order = state.orders.find(o => o.id === orderId);
+      if (!order) return;
+      if (!confirmMsg('¿Agregar este pedido nuevamente al carrito?')) return;
+      state.cart = order.items.map(i => ({
+        id: crypto.randomUUID(),
+        flavorId: i.flavorId,
+        name: i.name,
+        price: i.price,
+        qty: i.qty
+      }));
+      saveState(); renderCart();
+    }
+
+    function deleteOrder(orderId) {
+      if (!confirmMsg('¿Eliminar este pedido del historial?')) return;
+      state.orders = state.orders.filter(o => o.id !== orderId);
+      saveState(); renderOrders();
+    }
+
+    // --- Historial: exportar / limpiar ---
+    function exportOrders() {
+      const dataStr = JSON.stringify(state.orders, null, 2);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'pedidos_heladeria.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function clearHistory() {
+      if (!confirmMsg('¿Borrar todo el historial de pedidos?')) return;
+      state.orders = [];
+      saveState(); renderOrders();
+    }
+
+    // --- Impuesto ---
+    function onTaxChange() {
+      const v = Number($('taxPercent').value);
+      state.taxPercent = v >= 0 ? v : 0;
+      saveState(); renderCart();
+    }
+
+    // --- Eventos ---
+    function wireEvents() {
+      $('addFlavorBtn').addEventListener('click', addFlavor);
+      $('addToCartBtn').addEventListener('click', addToCart);
+      $('clearCartBtn').addEventListener('click', clearCart);
+      $('confirmOrderBtn').addEventListener('click', confirmOrder);
+      $('exportBtn').addEventListener('click', exportOrders);
+      $('clearHistoryBtn').addEventListener('click', clearHistory);
+      $('taxPercent').addEventListener('input', onTaxChange);
+    }
+
+    // --- Boot ---
+    loadState();
+    wireEvents();
+    $('taxPercent').value = state.taxPercent;
+    renderFlavors();
+    renderCart();
+    renderOrders();
+
+    // Exponer funciones usadas por botones inline
+    window.editFlavor = editFlavor;
+    window.deleteFlavor = deleteFlavor;
+    window.changeQty = changeQty;
+    window.removeFromCart = removeFromCart;
+    window.reorder = reorder;
+    window.deleteOrder = deleteOrder;
+  </script>
+</body>
+</html>
